@@ -233,6 +233,7 @@ async function runSmokeTest(window) {
             ? '__VIDOGO_RUN_BROWSER_YOUTUBE_FLOW_TEST'
             : '__VIDOGO_RUN_SELF_TEST';
           const runnerLabel = scenario || 'self test';
+          const runnerTimeoutMs = scenario === 'browser-youtube-flow' ? 45000 : 18000;
           const selfTestPromise = Promise.resolve(
             typeof window[runnerName] === 'function'
               ? window[runnerName]()
@@ -242,7 +243,7 @@ async function runSmokeTest(window) {
             ok: false,
             failures: [runnerLabel + ' timed out'],
             progress: window.__VIDOGO_SELF_TEST_PROGRESS || null
-          }), 18000));
+          }), runnerTimeoutMs));
           Promise.race([selfTestPromise, timeoutPromise]).then((selfTest) => {
             const finalSection = ${JSON.stringify(process.env.ELECTRON_SMOKE_FINAL_SECTION || '')};
             if (finalSection && typeof window.__VIDOGO_SET_SECTION === 'function') {
@@ -255,7 +256,7 @@ async function runSmokeTest(window) {
                 selfTest,
                 tabs: document.querySelectorAll('.tab').length,
                 pages: document.querySelectorAll('.page').length,
-                quickSites: document.querySelectorAll('.site-card').length,
+                quickSites: document.querySelectorAll('.popular-site-button, .site-card').length,
                 activePage: activePageIds[0] || null,
                 activePageIds,
                 browserLayout: typeof window.__VIDOGO_GET_BROWSER_LAYOUT === 'function'
@@ -302,9 +303,15 @@ async function writeSmokeResult(payload) {
       if (!mainWindow.isVisible()) {
         mainWindow.showInactive();
       }
-      await mainWindow.webContents.executeJavaScript(
-        'new Promise((resolve) => { let frames = 0; const tick = () => (++frames >= 6 ? resolve() : requestAnimationFrame(tick)); requestAnimationFrame(tick); })'
-      );
+      await mainWindow.webContents.executeJavaScript(`
+        document.body.dataset.theme = 'dark';
+        document.body.dataset.resolvedTheme = 'dark';
+        new Promise((resolve) => {
+          let frames = 0;
+          const tick = () => (++frames >= 6 ? resolve() : requestAnimationFrame(tick));
+          requestAnimationFrame(tick);
+        })
+      `);
       const image = await Promise.race([
         mainWindow.webContents.capturePage(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Smoke screenshot timed out')), 3000)),

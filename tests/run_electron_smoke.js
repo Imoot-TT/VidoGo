@@ -31,7 +31,7 @@ const child = spawn(electronPath, ['.'], {
 });
 
 const startedAt = Date.now();
-const timeoutMs = 25000;
+const timeoutMs = process.env.ELECTRON_SMOKE_SCENARIO === 'browser-youtube-flow' ? 60000 : 25000;
 
 function readResult() {
   if (!fs.existsSync(resultPath)) return null;

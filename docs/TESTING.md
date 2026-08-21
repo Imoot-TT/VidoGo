@@ -29,12 +29,22 @@ Then visually inspect:
 C:\Users\admin\AppData\Local\Temp\vidogo-youtube-flow.png
 ```
 
+For the dark-mode inspection used to verify the reported half-height issue, keep a named copy:
+
+```powershell
+Copy-Item "$env:TEMP\vidogo-smoke-home.png" "$env:TEMP\vidogo-youtube-flow-vidbrowser-structure-dark.png" -Force
+```
+
 The screenshot must show:
 
 - Top tab bar with Home first and YouTube after it.
 - Browser toolbar visible.
 - YouTube content/webview occupying the full browser stage height.
 - Right media sniffing panel full height.
+- The targeted flow waits for YouTube guest content before taking the screenshot; do not accept an early blank-page screenshot as visual proof.
+- The targeted flow forces both the VidoGo shell and YouTube guest page into dark rendering before screenshot capture.
+
+The current passing target is not just visual: the smoke JSON must report `viewHeight === stageHeight`, no inline webview sizing, and `mediaPanelHeight === stageHeight`.
 
 ## Smoke Coverage
 
@@ -64,4 +74,3 @@ Get-Process electron -ErrorAction SilentlyContinue |
   Where-Object { $_.Path -eq 'C:\Users\admin\Documents\New project 4\node_modules\electron\dist\electron.exe' } |
   ForEach-Object { try { Stop-Process -Id $_.Id -Force -ErrorAction Stop } catch {} }
 ```
-

@@ -83,6 +83,16 @@ const TEXT = {
     noMediaHint: '打开视频页面后自动嗅探',
     openPanel: '打开媒体面板',
     closePanel: '关闭媒体面板',
+    scanning: '扫描中',
+    suspectedVideosFound: '发现疑似视频',
+    copyLink: '复制链接',
+    copyLinkCopied: '已复制链接',
+    copyLinkFailed: '复制失败',
+    unknownSize: '未知大小',
+    downloadCompleted: '下载完成',
+    videoKind: '视频',
+    audioKind: '音频',
+    playlistKind: '播放列表',
     recommend: '推荐',
     all: '全部',
     outputFolder: '输出目录',
@@ -264,6 +274,16 @@ const TEXT = {
     noMediaHint: 'Open a video page to sniff media',
     openPanel: 'Open media panel',
     closePanel: 'Close media panel',
+    scanning: 'Scanning',
+    suspectedVideosFound: 'Suspected videos found',
+    copyLink: 'Copy link',
+    copyLinkCopied: 'Link copied',
+    copyLinkFailed: 'Copy failed',
+    unknownSize: 'Unknown size',
+    downloadCompleted: 'Download completed',
+    videoKind: 'Video',
+    audioKind: 'Audio',
+    playlistKind: 'Playlist',
     recommend: 'Recommended',
     all: 'All',
     outputFolder: 'Output folder',
@@ -454,17 +474,13 @@ const els = {
   browserSideTitle: document.getElementById('browser-side-title'),
   recommend: document.querySelector('[data-side-tab="recommend"]'),
   allMedia: document.querySelector('[data-side-tab="all"]'),
+  mediaCount: document.getElementById('media-count'),
   recommendCount: document.getElementById('recommend-count'),
   allCount: document.getElementById('all-count'),
   browserQualityLabel: document.getElementById('browser-quality-label'),
   browserQuality: document.getElementById('browser-quality'),
   downloadQuality: document.getElementById('download-quality'),
-  cardTitle: document.getElementById('browser-card-title'),
-  cardMeta: document.getElementById('browser-card-meta'),
-  cardSize: document.getElementById('browser-card-size'),
   candidateList: document.getElementById('candidate-list'),
-  browserDownload: document.getElementById('browser-download'),
-  browserDownloadMenu: document.getElementById('browser-download-menu'),
   pageFavorite: document.getElementById('page-favorite'),
   pageMediaToggle: document.getElementById('page-media-toggle'),
   pagePin: document.getElementById('page-pin'),
@@ -531,7 +547,7 @@ const els = {
 };
 
 const state = {
-  theme: localStorage.getItem(STORAGE_KEYS.theme) || 'system',
+  theme: localStorage.getItem(STORAGE_KEYS.theme) || 'dark',
   locale: localStorage.getItem(STORAGE_KEYS.locale) || 'zh-CN',
   section: 'browser',
   navSection: 'browser',
@@ -643,7 +659,6 @@ function applyLocale() {
   els.sideClose.title = text('closePanel');
   els.sideClose.setAttribute('aria-label', text('closePanel'));
   els.browserQualityLabel.textContent = text('quality');
-  els.browserDownload.textContent = text('download');
   document.getElementById('download-url-summary').textContent = text('addDownloadTask');
   document.getElementById('output-dir-label').textContent = text('outputFolder');
   document.getElementById('download-quality-label').textContent = text('quality');
@@ -774,20 +789,11 @@ function syncMediaPanelVisibility() {
 
 function resizeActiveWebview() {
   webviewResizeFrame = 0;
-  const tab = activeTab();
-  if (!tab || state.section !== 'browser') return;
-  const rect = els.browserStage.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width));
-  const height = Math.max(1, Math.round(rect.height));
-  if (width <= 1 || height <= 1) return;
   state.tabs.forEach((item) => {
-    if (item.id === tab.id) {
-      item.webview.style.width = `${width}px`;
-      item.webview.style.height = `${height}px`;
-    } else {
-      item.webview.style.width = '';
-      item.webview.style.height = '';
-    }
+    item.webview.style.width = '';
+    item.webview.style.height = '';
+    item.webview.removeAttribute('width');
+    item.webview.removeAttribute('height');
   });
 }
 
@@ -881,21 +887,27 @@ function attachWebviewEvents(tab) {
 function renderTabs() {
   els.tabStrip.innerHTML = '';
   const home = document.createElement('button');
-  home.className = `tab ${state.section === 'home' ? 'active' : ''}`;
+  home.className = `tab home-tab-button ${state.section === 'home' ? 'active is-active' : ''}`;
   home.type = 'button';
   home.innerHTML = '<span class="tab-icon">⌂</span><span class="tab-title"></span>';
+  home.querySelector('.tab-title').classList.add('browser-tab-title');
   home.querySelector('.tab-title').textContent = text('home');
   home.addEventListener('click', () => setSection('home'));
   els.tabStrip.appendChild(home);
 
   state.tabs.forEach((tab) => {
     const button = document.createElement('button');
-    button.className = `tab ${state.section === 'browser' && tab.id === state.activeTabId ? 'active' : ''}`;
+    button.className = `tab browser-tab ${state.section === 'browser' && tab.id === state.activeTabId ? 'active is-active' : ''}`;
     button.type = 'button';
     button.dataset.tabId = tab.id;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(state.section === 'browser' && tab.id === state.activeTabId));
+    button.title = tab.title || text('newTab');
     button.innerHTML = `<span class="tab-icon">●</span><span class="tab-title">${escapeHtml(tab.title || text('newTab'))}</span><span class="tab-close">×</span>`;
+    button.querySelector('.tab-title')?.classList.add('browser-tab-title');
+    button.querySelector('.tab-close')?.classList.add('tab-close-button');
     button.addEventListener('click', (event) => {
-      if (event.target.classList.contains('tab-close')) {
+      if (event.target.classList.contains('tab-close') || event.target.classList.contains('tab-close-button')) {
         closeTab(tab.id);
         return;
       }
@@ -944,7 +956,7 @@ function getBrowserLayoutSnapshot() {
   resizeActiveWebview();
   const activePageIds = Array.from(document.querySelectorAll('.page.active')).map((page) => page.id);
   const stageRect = els.browserStage.getBoundingClientRect();
-  const splitRect = document.querySelector('.browser-split')?.getBoundingClientRect();
+  const splitRect = els.browserSplit?.getBoundingClientRect();
   const sideRect = document.querySelector('.browser-side')?.getBoundingClientRect();
   const activeView = activeTab()?.webview || null;
   const activeViewRect = activeView?.getBoundingClientRect();
@@ -969,6 +981,85 @@ function getBrowserLayoutSnapshot() {
     activeMediaCandidates: activeCandidates.length,
     activeMediaTab: state.browserSideTab,
   };
+}
+
+async function inspectActiveGuestPage() {
+  const view = activeTab()?.webview;
+  if (!view) return null;
+  try {
+    return await view.executeJavaScript(`
+      (() => {
+        const pickRect = (selector) => {
+          const element = document.querySelector(selector);
+          if (!element) return null;
+          const rect = element.getBoundingClientRect();
+          return {
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            top: Math.round(rect.top),
+            bottom: Math.round(rect.bottom)
+          };
+        };
+        const meaningfulSelectors = [
+          'ytd-app',
+          '#content',
+          '#page-manager',
+          'video',
+          'main',
+          'body'
+        ];
+        return {
+          href: location.href,
+          title: document.title,
+          readyState: document.readyState,
+          innerHeight: window.innerHeight,
+          innerWidth: window.innerWidth,
+          clientHeight: document.documentElement.clientHeight,
+          bodyHeight: document.body ? document.body.getBoundingClientRect().height : 0,
+          scrollHeight: Math.max(
+            document.documentElement.scrollHeight || 0,
+            document.body?.scrollHeight || 0
+          ),
+          visibleTextLength: document.body ? document.body.innerText.trim().length : 0,
+          rects: Object.fromEntries(meaningfulSelectors.map((selector) => [selector, pickRect(selector)]))
+        };
+      })()
+    `, true);
+  } catch (error) {
+    return { error: error?.message || String(error) };
+  }
+}
+
+async function forceActiveGuestDarkModeForSmoke() {
+  const view = activeTab()?.webview;
+  if (!view) return;
+  try {
+    await view.executeJavaScript(`
+      (() => {
+        document.documentElement.setAttribute('dark', 'true');
+        document.documentElement.dataset.vidogoSmokeDark = 'true';
+        document.documentElement.style.colorScheme = 'dark';
+        if (document.body) {
+          document.body.setAttribute('dark', 'true');
+          document.body.style.colorScheme = 'dark';
+        }
+        let style = document.querySelector('#__vidogo_smoke_dark_mode');
+        if (!style) {
+          style = document.createElement('style');
+          style.id = '__vidogo_smoke_dark_mode';
+          document.documentElement.appendChild(style);
+        }
+        style.textContent = [
+          'html, body, ytd-app, #content, #page-manager, #container, #primary, #secondary { background: #0f0f0f !important; color: #f1f1f1 !important; }',
+          'yt-formatted-string, ytd-rich-grid-media, ytd-guide-entry-renderer, #video-title, #text, #label, span, h1, h2, h3, a { color: #f1f1f1 !important; }',
+          'input, #search, #search-form, #search-container, .ytd-searchbox { background: #181818 !important; color: #f1f1f1 !important; border-color: #303030 !important; }',
+          '#guide-content, ytd-mini-guide-renderer, ytd-masthead, #masthead-container { background: #0f0f0f !important; }'
+        ].join('\\n');
+      })()
+    `, true);
+  } catch {
+    // Smoke diagnostics should not fail only because a guest page refused CSS injection.
+  }
 }
 
 function updateBrowserControls() {
@@ -1034,14 +1125,15 @@ function siteIcon(url) {
 
 function renderQuickSites() {
   Object.entries(QUICK_SITES).forEach(([group, sites]) => {
-    const grid = document.querySelector(`.quick-cards[data-group="${group}"]`);
+    const grid = document.querySelector(`.popular-site-list[data-group="${group}"], .quick-cards[data-group="${group}"]`);
     if (!grid) return;
     grid.innerHTML = '';
     sites.forEach((site) => {
       const button = document.createElement('button');
-      button.className = 'site-card';
+      button.className = 'popular-site-button site-card';
       button.type = 'button';
-      button.innerHTML = `<span class="site-icon"><img src="${escapeHtml(site.icon)}" alt="" /></span><span class="site-name">${escapeHtml(site.name)}</span>`;
+      button.title = site.name;
+      button.innerHTML = `<span class="site-icon favorite-site-icon"><img src="${escapeHtml(site.icon)}" alt="" /></span><span class="site-name"><bdi>${escapeHtml(site.name)}</bdi></span>`;
       button.addEventListener('click', () => openUrl(site.url, site.name));
       grid.appendChild(button);
     });
@@ -1158,6 +1250,90 @@ function selectedCandidate() {
   return candidates.find((item) => item.id === selectedId) || candidates[0] || null;
 }
 
+function candidateSize(candidate) {
+  return candidate?.sizeBytes ?? candidate?.size ?? null;
+}
+
+function candidateKind(candidate) {
+  const mime = String(candidate?.mime || candidate?.mimeType || '').toLowerCase();
+  if (candidate?.kind) return candidate.kind;
+  if (mime.startsWith('audio/')) return 'audio';
+  if (candidate?.resourceType === 'playlist' || candidate?.extension === 'm3u8') return 'playlist';
+  return 'video';
+}
+
+function candidateKindLabel(candidate) {
+  const kind = candidateKind(candidate);
+  if (kind === 'audio') return text('audioKind');
+  if (kind === 'playlist') return text('playlistKind');
+  return text('videoKind');
+}
+
+function candidateFormat(candidate) {
+  return (candidate?.extension || candidate?.mime || candidate?.mimeType || candidate?.resourceType || '').toUpperCase();
+}
+
+function candidateResolution(candidate) {
+  if (candidate?.qualityLabel) return candidate.qualityLabel;
+  if (candidate?.resolution) return `${candidate.resolution}p`;
+  if (candidate?.height) return `${candidate.height}p`;
+  if (candidate?.width && candidate?.height) return `${candidate.width}x${candidate.height}`;
+  return '';
+}
+
+function candidateTitle(candidate) {
+  return candidate?.title || candidate?.fileName || candidate?.host || candidate?.url || text('noMedia');
+}
+
+function candidateIcon(candidate) {
+  const kind = candidateKind(candidate);
+  if (kind === 'audio') return '♪';
+  if (kind === 'playlist') return '▤';
+  return '▶';
+}
+
+function candidateMetaParts(candidate) {
+  return [
+    candidateKindLabel(candidate),
+    candidateFormat(candidate),
+    candidateResolution(candidate),
+  ].filter(Boolean);
+}
+
+function canCopyCandidate(candidate) {
+  return Boolean(candidate?.url);
+}
+
+function renderCandidateRow(candidate, selected) {
+  const sizeLabel = formatBytes(candidateSize(candidate));
+  const hasSize = sizeLabel !== '-';
+  const thumbnail = candidate.thumbnailUrl
+    ? `<img src="${escapeHtml(candidate.thumbnailUrl)}" alt="${escapeHtml(candidateTitle(candidate))}" loading="lazy" />`
+    : escapeHtml(candidateIcon(candidate));
+  return `
+    <article class="sniffer-resource-row${candidate.id === selected?.id ? ' is-active' : ''}" data-candidate="${escapeHtml(candidate.id)}">
+      <div class="sniffer-resource-main">
+        <span class="sniffer-resource-thumbnail${candidate.thumbnailUrl ? ' has-thumbnail' : ''}">${thumbnail}</span>
+        <div class="sniffer-resource-content">
+          <div class="sniffer-resource-title" title="${escapeHtml(candidateTitle(candidate))}"><bdi>${escapeHtml(candidateTitle(candidate))}</bdi></div>
+          <div class="sniffer-resource-meta">
+            ${candidateMetaParts(candidate).map((part, index) => index === 0
+              ? `<span class="media-kind-badge is-${escapeHtml(candidateKind(candidate))}">${escapeHtml(part)}</span>`
+              : `<span><bdi>${escapeHtml(part)}</bdi></span>`).join('')}
+          </div>
+          <div class="sniffer-resource-footer">
+            ${hasSize ? `<span class="sniffer-resource-size"><bdi>${escapeHtml(sizeLabel)}</bdi></span>` : ''}
+            ${canCopyCandidate(candidate) ? `<button class="sniffer-resource-copy" type="button" data-copy-candidate="${escapeHtml(candidate.id)}" title="${text('copyLink')}" aria-label="${text('copyLink')}">⧉</button>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="sniffer-resource-download-actions">
+        <button class="sniffer-resource-download" type="button" data-download-candidate="${escapeHtml(candidate.id)}">${text('download')}</button>
+      </div>
+    </article>
+  `;
+}
+
 function renderCandidates() {
   const activeCandidates = mediaCandidatesForTab();
   const rows = state.browserSideTab === 'recommend' ? activeCandidates.slice(0, 1) : activeCandidates;
@@ -1166,36 +1342,45 @@ function renderCandidates() {
   els.allMedia.childNodes[0].textContent = `${text('all')} `;
   els.recommendCount.textContent = activeCandidates.length ? '1' : '0';
   els.allCount.textContent = String(activeCandidates.length);
+  els.mediaCount.textContent = String(rows.length);
   els.recommend.classList.toggle('active', state.browserSideTab === 'recommend');
   els.allMedia.classList.toggle('active', state.browserSideTab === 'all');
-  if (!selected) {
-    els.cardTitle.textContent = text('noMedia');
-    els.cardMeta.textContent = text('noMediaHint');
-    els.cardSize.textContent = '-';
-    els.browserDownload.disabled = true;
-  } else {
-    els.cardTitle.textContent = selected.title || selected.host || selected.url;
-    els.cardMeta.textContent = [selected.extension || selected.mime || selected.resourceType, selected.host].filter(Boolean).join(' · ');
-    els.cardSize.textContent = formatBytes(selected.size);
-    els.browserDownload.disabled = false;
-  }
+  els.recommend.classList.toggle('is-active', state.browserSideTab === 'recommend');
+  els.allMedia.classList.toggle('is-active', state.browserSideTab === 'all');
   if (!rows.length) {
-    els.candidateList.innerHTML = `<div class="empty-state small"><div class="empty-icon">◇</div><div class="empty-title">${text('noMedia')}</div></div>`;
+    const emptyMessage = state.browserSideTab === 'recommend' && activeCandidates.length > 0 ? text('suspectedVideosFound') : text('scanning');
+    els.candidateList.innerHTML = `<div class="media-empty"><div class="empty-icon">▶</div><p>${escapeHtml(emptyMessage === text('scanning') ? text('noMedia') : emptyMessage)}</p></div>`;
     return;
   }
-  els.candidateList.innerHTML = rows.map((item) => `
-    <button class="candidate-item${item.id === selected?.id ? ' active' : ''}" type="button" data-candidate="${escapeHtml(item.id)}">
-      <span class="candidate-kind">${escapeHtml((item.extension || item.resourceType || 'media').toUpperCase())}</span>
-      <span class="candidate-main">
-        <strong>${escapeHtml(item.title || item.host || item.url)}</strong>
-        <small>${escapeHtml(item.host || '')} · ${escapeHtml(formatBytes(item.size))}</small>
-      </span>
-    </button>
-  `).join('');
+  els.candidateList.innerHTML = rows.map((item) => renderCandidateRow(item, selected)).join('');
   els.candidateList.querySelectorAll('[data-candidate]').forEach((button) => {
     button.addEventListener('click', () => {
       state.selectedCandidateIdsByTabId[state.activeTabId] = button.dataset.candidate;
       renderCandidates();
+    });
+  });
+  els.candidateList.querySelectorAll('[data-copy-candidate]').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const candidate = mediaCandidatesForTab().find((item) => item.id === button.dataset.copyCandidate);
+      if (!candidate?.url) return;
+      try {
+        await navigator.clipboard.writeText(candidate.url);
+        toast(text('copyLinkCopied'));
+      } catch {
+        toast(text('copyLinkFailed'));
+      }
+    });
+  });
+  els.candidateList.querySelectorAll('[data-download-candidate]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const candidate = mediaCandidatesForTab().find((item) => item.id === button.dataset.downloadCandidate);
+      if (!candidate?.url) return;
+      state.selectedCandidateIdsByTabId[state.activeTabId] = candidate.id;
+      els.urlInput.value = candidate.url;
+      setSection('downloads');
+      void startDownload();
     });
   });
 }
@@ -1752,18 +1937,6 @@ function bindEvents() {
   els.reload.addEventListener('click', () => activeTab()?.webview.reload());
   els.addressGo.addEventListener('click', () => navigateActive(els.address.value));
   els.address.addEventListener('keydown', (event) => { if (event.key === 'Enter') navigateActive(els.address.value); });
-  els.browserDownload.addEventListener('click', () => {
-    const candidate = selectedCandidate();
-    const targetUrl = candidate?.url || activeTab()?.url;
-    if (!targetUrl) return;
-    els.urlInput.value = targetUrl;
-    setSection('downloads');
-    void startDownload();
-  });
-  els.browserDownloadMenu.addEventListener('click', () => {
-    state.browserSideTab = state.browserSideTab === 'recommend' ? 'all' : 'recommend';
-    renderCandidates();
-  });
   els.browserQuality.addEventListener('change', () => {
     state.settings.resolution = els.browserQuality.value;
     syncSettingsControls();
@@ -2158,7 +2331,7 @@ async function runRendererSelfTest() {
 
   setSection('home');
   await wait(250);
-  const siteImages = Array.from(document.querySelectorAll('.site-card img'));
+  const siteImages = Array.from(document.querySelectorAll('.popular-site-button img, .site-card img'));
   await Promise.allSettled(siteImages.map((image) => {
     if (image.complete && image.naturalWidth > 0) return Promise.resolve();
     return image.decode ? image.decode() : new Promise((resolve) => {
@@ -2168,6 +2341,7 @@ async function runRendererSelfTest() {
   }));
   const unloadedImages = siteImages.filter((image) => !image.complete || image.naturalWidth <= 0);
   assert(siteImages.length === 15, `Expected 15 platform icon images, got ${siteImages.length}`);
+  assert(document.querySelectorAll('.browser-home .popular-site-button').length === 15, 'VidBrowser-style popular site buttons did not render');
   assert(unloadedImages.length === 0, `Platform icons failed to load: ${unloadedImages.map((image) => image.getAttribute('src')).join(', ')}`);
   const homeTabButton = document.querySelector('.tab:first-child');
   assert(homeTabButton?.textContent.includes(text('home')), 'Home tab should be the first tab before opening a site');
@@ -2176,7 +2350,7 @@ async function runRendererSelfTest() {
   assert(state.section === 'browser', 'Home search did not open the browser page');
   assert(state.tabs.at(-1)?.url === 'https://example.com', 'Home search did not create a browser tab for example.com');
   const tabsAfterSearch = state.tabs.length;
-  const quickYouTube = Array.from(document.querySelectorAll('.site-card')).find((button) => button.textContent.includes('YouTube'));
+  const quickYouTube = Array.from(document.querySelectorAll('.popular-site-button, .site-card')).find((button) => button.textContent.includes('YouTube'));
   setSection('home');
   await clickControl('home:quick-site:youtube', quickYouTube);
   assert(state.tabs.length === tabsAfterSearch + 1, 'YouTube quick site did not create a new browser tab');
@@ -2243,7 +2417,7 @@ async function runRendererSelfTest() {
   assert(firstLayout.stageWidth > 600, `Browser stage width too small after tab switch: ${firstLayout.stageWidth}`);
   assert(firstLayout.viewWidth === firstLayout.stageWidth && firstLayout.viewHeight === firstLayout.stageHeight, 'Active webview does not fill browser stage');
   assert(firstLayout.viewDisplay === 'flex' && firstLayout.viewVisibility === 'visible', 'Active webview should be visible in the browser frame flow');
-  assert(firstLayout.viewInlineHeight === `${firstLayout.stageHeight}px`, `Active webview did not receive explicit guest height: ${firstLayout.viewInlineHeight}`);
+  assert(firstLayout.viewInlineHeight === '' && firstLayout.viewInlineWidth === '', 'Active webview should use VidBrowser CSS flow instead of inline sizing');
   const addedTabButton = document.querySelector(`.tab[data-tab-id="${addedTabId}"]`);
   await clickControl('tab:switch-added', addedTabButton);
   assert(state.activeTabId === addedTabId, 'Switching back to added tab did not update active tab');
@@ -2383,7 +2557,9 @@ async function runRendererSelfTest() {
   }]);
   state.selectedCandidateIdsByTabId[mediaTestTabId] = 'self-test-candidate';
   renderCandidates();
-  assert(els.candidateList.querySelectorAll('.candidate-item').length >= 1, 'Candidate row did not render');
+  assert(els.candidateList.querySelectorAll('.sniffer-resource-row').length >= 1, 'VidBrowser media candidate row did not render');
+  assert(Boolean(els.candidateList.querySelector('[data-download-candidate="self-test-candidate"]')), 'VidBrowser media candidate download action did not render');
+  assert(Boolean(els.candidateList.querySelector('[data-copy-candidate="self-test-candidate"]')), 'VidBrowser media candidate copy action did not render');
   await clickControl('browser:media-tab-all', els.allMedia);
   assert(state.browserSideTab === 'all', 'All media tab did not activate');
   await clickControl('browser:media-tab-recommend', els.recommend);
@@ -2514,7 +2690,7 @@ async function runRendererSelfTest() {
     ok: failures.length === 0,
     failures,
     pages: Object.keys(els.pages).length,
-    quickSites: document.querySelectorAll('.site-card img').length,
+    quickSites: document.querySelectorAll('.popular-site-button img, .site-card img').length,
     tabs: state.tabs.length,
     clicked,
   };
@@ -2554,9 +2730,23 @@ async function runBrowserYouTubeFlowTest() {
   assert(document.querySelector('.tab:first-child')?.textContent.includes(text('home')), 'Home tab should be first before opening YouTube');
   assert(getVisibleWebviews().length === 0, 'Home page should not show any webview before opening YouTube');
 
-  const quickYouTube = Array.from(document.querySelectorAll('.site-card')).find((button) => button.textContent.includes('YouTube'));
+  const quickYouTube = Array.from(document.querySelectorAll('.popular-site-button, .site-card')).find((button) => button.textContent.includes('YouTube'));
   await clickControl('home:quick-site:youtube', quickYouTube);
-  await wait(250);
+  let guest = null;
+  const waitStartedAt = Date.now();
+  while (Date.now() - waitStartedAt < 30000) {
+    window.__VIDOGO_SELF_TEST_PROGRESS = 'browser-youtube-flow:waiting-for-youtube-content';
+    await wait(750);
+    guest = await inspectActiveGuestPage();
+    const hasYouTubeShell = Boolean(guest?.rects?.['ytd-app'] || guest?.rects?.['#page-manager'] || guest?.rects?.video);
+    const hasLoadedDocument = guest?.readyState === 'complete' || guest?.readyState === 'interactive';
+    const hasViewportHeight = Number(guest?.innerHeight || 0) > 500 && Number(guest?.clientHeight || 0) > 500;
+    const hasPageContent = Number(guest?.visibleTextLength || 0) > 20 || hasYouTubeShell;
+    if (hasLoadedDocument && hasViewportHeight && hasPageContent) break;
+  }
+  await forceActiveGuestDarkModeForSmoke();
+  await wait(750);
+  guest = await inspectActiveGuestPage();
   assert(state.tabs.length === 1, `YouTube flow should create one browser tab, got ${state.tabs.length}`);
   assert(activeTab()?.title === 'YouTube', 'YouTube tab title was not preserved from the quick site label');
   assert(activeTab()?.url === 'https://www.youtube.com/', 'YouTube quick site opened an unexpected URL');
@@ -2567,9 +2757,11 @@ async function runBrowserYouTubeFlowTest() {
   assert(layout.visibleWebviews === 1, 'YouTube flow should show exactly one webview');
   assert(layout.viewHeight === layout.stageHeight && layout.viewHeight > 500, `YouTube webview is not full-height: view=${layout.viewHeight}, stage=${layout.stageHeight}`);
   assert(layout.mediaPanelVisible === true && layout.mediaPanelHeight === layout.stageHeight, 'YouTube flow did not show the full-height media sniffing panel');
-  assert(els.recommendCount.textContent === '0' && els.allCount.textContent === '0', 'Fresh YouTube tab should start with empty media candidates');
+  assert(Number(guest?.innerHeight || 0) > 500 && Number(guest?.clientHeight || 0) > 500, `YouTube guest page viewport did not become full-height: ${JSON.stringify(guest)}`);
+  assert(Number(els.allCount.textContent) === layout.activeMediaCandidates, 'YouTube media candidate count did not match the active tab');
+  assert(Number(els.recommendCount.textContent) <= Number(els.allCount.textContent), 'Recommended media count should not exceed all media count');
   window.__VIDOGO_SELF_TEST_PROGRESS = 'browser-youtube-flow:done';
-  return { ok: failures.length === 0, failures, clicked, layout };
+  return { ok: failures.length === 0, failures, clicked, layout, guest };
 }
 
 bootstrap().catch((error) => {

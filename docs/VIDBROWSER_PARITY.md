@@ -27,7 +27,7 @@ Home behavior:
 - Clicking a popular site opens a new browser tab.
 - The Home tab remains before browser tabs in the top tab bar.
 
-Current VidoGo still needs additional cleanup to fully match VidBrowser home class names and Element Plus style structure. Do not invent a new visual direction; copy the parsed reference structure and CSS as closely as practical.
+Current VidoGo home now exposes the VidBrowser class structure above while preserving VidoGo IDs for existing logic and tests. Do not invent a new visual direction; continue copying the parsed reference structure and CSS as closely as practical.
 
 ## Browser Tabs
 
@@ -55,6 +55,7 @@ Evidence required:
 - Smoke layout must show `viewHeight === stageHeight`.
 - Screenshot must show the webview content area occupying the full browser stage.
 - When debugging, inspect both host DOM and guest page dimensions.
+- For YouTube specifically, wait until the guest page reports loaded content before screenshotting. The targeted smoke test records guest `innerHeight`, `clientHeight`, and `ytd-app` rect height.
 
 Important: a pass from `getBoundingClientRect()` alone is not enough if the screenshot still shows half rendering.
 
@@ -74,6 +75,13 @@ VidoGo target:
 - Refresh/clear should apply to the active tab/webContents where possible.
 - Closing the panel should expand the browser webview area.
 - Reopening the panel should restore the right-side panel without causing webview height regression.
+- Use the VidBrowser panel/list structure: `media-panel generic-media-panel`, `media-count`, `media-resolution-filter`, `sniffer-resource-list`, and `sniffer-resource-row`.
+- Resource rows should expose title, kind/format/resolution metadata, size, copy action, and download action in the panel itself.
+
+Remaining deeper parity work:
+
+- Port dedicated provider strategies and candidate enrichment from the parsed VidBrowser media code.
+- Add variant expansion for multi-resolution candidates once the worker/main process supplies variant metadata.
 
 ## Downloads
 
@@ -90,4 +98,3 @@ Do not put these into the Electron desktop app:
 - Promotional website similar to `https://www.vidbrowser.net/`.
 
 Those should be separate web apps that can later be deployed to a server.
-

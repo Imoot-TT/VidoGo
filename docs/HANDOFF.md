@@ -46,6 +46,7 @@ Key VidBrowser areas already inspected:
 
 - Empty browser state should show the home page first, like VidBrowser.
 - Clicking a home shortcut such as YouTube should keep the Home tab at the front and open a browser tab after it.
+- The app defaults to dark mode so webview-height regressions are easier to see in screenshots.
 - Webview rendering must be full height. Do not rely only on outer DOM dimensions; visually inspect screenshots when changing layout.
 - Media candidates are scoped per browser tab, not global.
 - The media sniffing panel is visible by default on browser pages and can be closed/reopened.
@@ -62,10 +63,58 @@ The user reported that after clicking YouTube, the webview content rendered only
 
 Always validate this with a screenshot, not only JSON layout values.
 
+Latest verified evidence:
+
+- `npm.cmd run smoke` passed with `viewHeight === stageHeight === 790`, `sideWidth === 300`, and media panel height `790`.
+- Targeted YouTube flow passed with Home first, YouTube second, active webview `1176x790`, and media panel `300x790`.
+- The YouTube guest page reported `innerHeight === 790`, `clientHeight === 790`, and `ytd-app.height === 790`.
+- Dark screenshot copied to `C:\Users\admin\AppData\Local\Temp\vidogo-youtube-flow-vidbrowser-structure-dark.png`.
+
+## Current Browser Home Status
+
+The home page now carries the VidBrowser reference structure/class names while keeping existing VidoGo IDs for logic:
+
+- `browser-home`
+- `browser-home-content`
+- `browser-home-brand`
+- `browser-home-logo`
+- `logo-vid`
+- `logo-browser`
+- `home-address-input`
+- `popular-sites`
+- `popular-site-groups`
+- `popular-site-group`
+- `popular-site-list`
+- `popular-site-button`
+
+Tests now require these tokens and verify all 15 popular site icons render under `.browser-home .popular-site-button`.
+
+## Current Browser Media Panel Status
+
+The browser page now uses the VidBrowser media sniffer structure instead of the older VidoGo summary card:
+
+- `media-panel generic-media-panel`
+- `media-count`
+- `media-resolution-filter`
+- `media-resolution-select`
+- `sniffer-resource-list`
+- `sniffer-resource-row`
+- `sniffer-resource-main`
+- `sniffer-resource-thumbnail`
+- `sniffer-resource-content`
+- `sniffer-resource-title`
+- `sniffer-resource-meta`
+- `sniffer-resource-footer`
+- `sniffer-resource-size`
+- `sniffer-resource-download-actions`
+- `sniffer-resource-download`
+
+The current implementation still uses VidoGo's existing network-resource sniffing and download worker. Dedicated VidBrowser provider strategies and full candidate enrichment should be implemented later from `legacy_reference/out/renderer/assets/index-gYpwNu8G.js` around the media candidate handling area.
+
 ## Git Notes
 
-- The repository currently had no commits when this handoff document was created.
-- There was no git remote configured.
+- GitHub repository: `https://github.com/Imoot-TT/VidoGo`.
+- Local default branch: `main`.
+- Remote: `origin https://github.com/Imoot-TT/VidoGo.git`.
 - The user provided a GitHub profile URL, not a repository URL: `https://github.com/Imoot-TT`.
 - Do not commit `node_modules/`, `dist/`, `build/`, or `legacy_reference/`.
-
