@@ -10,6 +10,8 @@ npm.cmd run check:backend
 npm.cmd run smoke
 ```
 
+Do not commit browser/media-panel code changes unless these checks pass. If the user asks only to record documentation, stage and commit the documentation separately from unstable source WIP.
+
 ## Browser YouTube Flow
 
 Use this targeted smoke scenario when validating the user-reported YouTube half-height problem:
@@ -40,6 +42,7 @@ The screenshot must show:
 - Top tab bar with Home first and YouTube after it.
 - Browser toolbar visible.
 - YouTube content/webview occupying the full browser stage height.
+- On a YouTube watch page, YouTube's native recommendation column should remain inside the webview.
 - Right media sniffing panel full height.
 - The targeted flow waits for YouTube guest content before taking the screenshot; do not accept an early blank-page screenshot as visual proof.
 - The targeted flow forces both the VidoGo shell and YouTube guest page into dark rendering before screenshot capture.
@@ -58,7 +61,7 @@ The renderer smoke test currently exercises:
 - Media panel close/reopen.
 - Theme and language switches.
 - Browser tab add/switch/close.
-- Browser favorite and pin-to-download.
+- Browser favorite/favorites popover and media panel toggle.
 - Media refresh, clear, recommended/all tabs.
 - Download start/cancel, filters, ranges, pagination, open file/folder, remove, retry, clear finished, import, output selection.
 - History item open/remove/clear.

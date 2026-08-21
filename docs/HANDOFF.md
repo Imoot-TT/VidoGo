@@ -9,6 +9,8 @@ Read this file first when continuing development. The current project is the Ele
 - Reference product: parsed VidBrowser artifacts in the local `legacy_reference/` directory.
 - Primary target: match VidBrowser behavior, layout, icons, and interactions page by page.
 - Current priority from the user: browser home, tab behavior, webview full-height rendering, media sniffing panel, download page parity, and full interaction testing.
+- Current explicit user constraint: do not guess at VidBrowser behavior. Inspect VidBrowser itself and/or the parsed reference before changing layout, icons, or interactions.
+- Settings can remain as VidoGo-specific unless it blocks tests. All other visible desktop pages should converge toward VidBrowser.
 
 ## Important Local Reference Files
 
@@ -50,6 +52,8 @@ Key VidBrowser areas already inspected:
 - Webview rendering must be full height. Do not rely only on outer DOM dimensions; visually inspect screenshots when changing layout.
 - Media candidates are scoped per browser tab, not global.
 - The media sniffing panel is visible by default on browser pages and can be closed/reopened.
+- VidBrowser keeps YouTube's native page layout inside the webview. On a YouTube watch page, YouTube's own right-side recommendation column remains inside the webview; VidBrowser's media sniffer is an additional app-side panel outside that webview.
+- Do not solve the YouTube video page by hiding or replacing YouTube's native recommendations. Match VidBrowser's outer shell and sniffer panel behavior instead.
 
 ## Known Issue History
 
@@ -111,6 +115,25 @@ The browser page now uses the VidBrowser media sniffer structure instead of the 
 
 The current implementation still uses VidoGo's existing network-resource sniffing and download worker. Dedicated VidBrowser provider strategies and full candidate enrichment should be implemented later from `legacy_reference/out/renderer/assets/index-gYpwNu8G.js` around the media candidate handling area.
 
+Additional YouTube video-page target from user screenshots:
+
+- On `youtube.com/watch`, the recommended media candidate should be the actual video, with thumbnail/title and resolution/codec variants similar to VidBrowser, not random audio/network fragments.
+- Candidate rows should match VidBrowser's right-panel buttons/icons: copy, download, split/variant expansion, header refresh, clear, and close.
+- A proposed implementation path is to enrich the active page using `yt-dlp` metadata and prepend a normalized `yt-dlp` candidate before raw sniffed network resources.
+- This WIP should not be committed as product-complete until `npm.cmd run check`, `npm.cmd run check:backend`, `npm.cmd run smoke`, and the targeted YouTube smoke pass.
+
+## Current Worktree Warning
+
+As of this handoff update, there are uncommitted browser/media-panel WIP edits in:
+
+- `src/main.js`
+- `src/preload.js`
+- `src/renderer/app.js`
+- `src/renderer/index.html`
+- `src/renderer/style.css`
+
+Before committing those code changes, first run `npm.cmd run check`. The renderer file has previously shown a syntax failure around localized quality strings, so do not assume the current WIP can launch until syntax checks pass.
+
 ## Git Notes
 
 - GitHub repository: `https://github.com/Imoot-TT/VidoGo`.
@@ -118,3 +141,4 @@ The current implementation still uses VidoGo's existing network-resource sniffin
 - Remote: `origin https://github.com/Imoot-TT/VidoGo.git`.
 - The user provided a GitHub profile URL, not a repository URL: `https://github.com/Imoot-TT`.
 - Do not commit `node_modules/`, `dist/`, `build/`, or `legacy_reference/`.
+- Do not commit unrelated untracked files such as temporary icon extractions or unrelated markdown drafts.
