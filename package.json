@@ -1,0 +1,22 @@
+{
+  "name": "vidogo",
+  "version": "1.5.0",
+  "private": true,
+  "description": "VidoGo video browser and downloader",
+  "main": "./src/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": ".\\node_modules\\electron\\dist\\electron.exe .",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/webview-preload.js && node --check src/renderer/app.js && node tests/verify_renderer_assets.js",
+    "check:backend": "python tests/verify_backend.py",
+    "smoke": "node tests/run_electron_smoke.js"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "electron-updater": "^6.8.3",
+    "element-plus": "^2.14.1",
+    "electron": "^39.0.0",
+    "vue": "^3.5.35"
+  }
+}
